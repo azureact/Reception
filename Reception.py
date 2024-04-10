@@ -148,9 +148,9 @@ async def code_command(ctx, code: str):
             if role not in ctx.author.roles:
                 await ctx.author.add_roles(role)
                 await ctx.author.remove_roles(guild.get_role(946371453622829057))
-                await ctx.reply('验证成功，身份组分配完成')
+                await ctx.reply('验证成功，已分配至身份组“未入站-UNVERIFIED”')
             else:
-                await ctx.reply('验证成功')
+                await ctx.reply('验证成功，已分配至身份组“站内成员-MEMBERS”')
             discord_name=ctx.author.nick
             users_dic[discord_id] = code_dic[discord_id][0]
             if users_dic[discord_id] not in discord_name:
