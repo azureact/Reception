@@ -14,7 +14,7 @@ async def on_ready():
 
 @bot.command(name='roleedit')
 async def role_edit(ctx, action, user_id, role_id):
-    if ctx.message。author.id not in allowed_user_ids:
+    if ctx.message.author.id not in allowed_user_ids:
         await ctx.send("在权限检查时出现错误：权限不足")
         return
 
