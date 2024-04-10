@@ -205,4 +205,4 @@ async def role_edit(ctx, action, user_id, role_id):
 
 
 threading.Thread(target=dic_clear,args=()).start()
-bot.run('') #discord机器人token
+bot.run('')
