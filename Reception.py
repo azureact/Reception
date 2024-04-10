@@ -99,7 +99,7 @@ def verify(ctx, wikidot_id: str):
             return None
         if wikidot_id=='':
             del code_dic[discord_id]
-            messages.append([ctx, discord_id, '缺少wikidot用户名'])
+            messages.append([ctx, discord_id, '参数不足：缺少wikidot用户名'])
             return None
         driver.refresh()
         driver.get(driver.find_element(By.XPATH, '//*[@id="page-content"]/div[2]/a[1]').get_attribute('href'))
