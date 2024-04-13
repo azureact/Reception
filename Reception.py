@@ -5,75 +5,81 @@ import asyncio
 import threading
 import discord
 import pickle
+import yaml
 from discord.ext import commands
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.chrome.options import Options
+import os
 
-code_dic={} #字典，{discord_id : [wikidot_id,code,time]}
-messages=[]
-allowed_user_ids = [953957224076705835, 292596329224470528, 1000762888107081788] #允许执行命令的用户列表
+code_dic = {}  # 字典，{discord_id : [wikidot_id,code,time]}
+messages = []
+allowed_user_ids = [953957224076705835, 292596329224470528, 1000762888107081788]  # 允许执行命令的用户列表
 roles_dict = {}
-with open("users_dic.pkl", "rb") as file:
-    users_dic = pickle.load(file)
+
+# 读取配置文件
+if os.path.exists("config.yml"):
+    with open("config.yml", "r") as file:
+        config = yaml.safe_load(file)
+else:
+    config = {
+        "WikidotAccount": "",
+        "WikidotPassword": "",
+        "DiscordToken": ""
+    }
+    with open("config.yml", "w") as file:
+        yaml.dump(config, file)
+
+# 初始化
+if os.path.exists("users_dic.pkl"):
+    with open("users_dic.pkl", "rb") as file:
+        users_dic = pickle.load(file)
+else:
+    users_dic = {}
+
 intents = discord.Intents.all()
-intents.all()
 intents.message_content = True
 intents.reactions = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 chrome_options = Options()
-#chrome_options.add_argument('--headless') #无头浏览器
+# chrome_options.add_argument('--headless') #无头浏览器
 chrome_options.add_argument('blink-settings=imagesEnabled=false')
 chrome_options.add_argument('--disable-gpu')
-#cookies=[{'domain': 'www.wikidot.com', 'expiry': 1704637498, 'httpOnly': False, 'name': '__utmt_old', 'path': '/', 'sameSite': 'Lax', 'secure': False, 'value': '1'}, {'domain': 'www.wikidot.com', 'expiry': 1720404898, 'httpOnly': False, 'name': '__utmz', 'path': '/', 'sameSite': 'Lax', 'secure': False, 'value': '1.1704636898.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none)'}, {'domain': 'www.wikidot.com', 'expiry': 1704638698, 'httpOnly': False, 'name': '__utmb', 'path': '/', 'sameSite': 'Lax', 'secure': False, 'value': '1.2.10.1704636898'}, {'domain': 'www.wikidot.com', 'expiry': 1739196898, 'httpOnly': False, 'name': '__utma', 'path': '/', 'sameSite': 'Lax', 'secure': False, 'value': '1.1345090849.1704636898.1704636898.1704636898.1'}, {'domain': 'www.wikidot.com', 'expiry': 1704637498, 'httpOnly': False, 'name': '__utmt', 'path': '/', 'sameSite': 'Lax', 'secure': False, 'value': '1'}, {'domain': 'www.wikidot.com', 'httpOnly': False, 'name': '__utmc', 'path': '/', 'sameSite': 'Lax', 'secure': False, 'value': '1'}, {'domain': '.wikidot.com', 'expiry': 1705846496, 'httpOnly': False, 'name': 'wikidot_udsession', 'path': '/', 'sameSite': 'Lax', 'secure': False, 'value': '1'}, {'domain': '.wikidot.com', 'expiry': 1714636894, 'httpOnly': False, 'name': 'WIKIDOT_SESSION_ID', 'path': '/', 'sameSite': 'Lax', 'secure': False, 'value': 'ea8b5c28dc4f5f0b0eebdf4eb1f90d4e419ae91260719cde66a35a1'}, {'domain': 'www.wikidot.com', 'httpOnly': False, 'name': 'WIKIDOT_SESSION_ID_IE', 'path': '/', 'sameSite': 'Lax', 'secure': False, 'value': 'ea8b5c28dc4f5f0b0eebdf4eb1f90d4e419ae91260719cde66a35a1'}, {'domain': 'www.wikidot.com', 'expiry': 1704723291, 'httpOnly': False, 'name': 'wikidot_token7', 'path': '/', 'sameSite': 'Lax', 'secure': False, 'value': '3be7ea94640c6e04fe05727a39546fbc'}]
-#获取cookies
+
+# 获取配置信息
+wikidot_account = config.get("WikidotAccount", "")
+wikidot_password = config.get("WikidotPassword", "")
+discord_token = config.get("DiscordToken", "")
+
+# 初始化webdriver并登录
 driver = webdriver.Chrome(options=chrome_options)
 driver.get("https://www.wikidot.com/default--flow/login__LoginPopupScreen?originSiteId=4716348&openerUri=http://backrooms-wiki-cn.wikidot.com")
-driver.find_element(By.XPATH,"//*[@id='html-body']/div[2]/div[2]/div/div[1]/div[1]/form/div[1]/div/input").send_keys("")
-driver.find_element(By.XPATH,"//*[@id='html-body']/div[2]/div[2]/div/div[1]/div[1]/form/div[2]/div/input").send_keys("")
-driver.find_element(By.XPATH,"//*[@id='html-body']/div[2]/div[2]/div/div[1]/div[1]/form/div[4]/div/button").click()
-cookies=driver.get_cookies()
+driver.find_element(By.XPATH, "//*[@id='html-body']/div[2]/div[2]/div/div[1]/div[1]/form/div[1]/div/input").send_keys(wikidot_account)
+driver.find_element(By.XPATH, "//*[@id='html-body']/div[2]/div[2]/div/div[1]/div[1]/form/div[2]/div/input").send_keys(wikidot_password)
+driver.find_element(By.XPATH, "//*[@id='html-body']/div[2]/div[2]/div/div[1]/div[1]/form/div[4]/div/button").click()
+cookies = driver.get_cookies()
 driver.close()
 
-
-#初始化
-@bot.event
-async def on_ready():
-    print(f'We have logged in as {bot.user}')
-    global messages
-    while True:
-        if messages==[]:
-            await asyncio.sleep(1)
-        else:
-            mes_temp=messages[0]
-            del messages[0]
-            channel = bot.get_channel(mes_temp[0].channel.id)
-            await channel.send(f'<@{mes_temp[1]}>{mes_temp[2]}')
-            if mes_temp[2]=='身份组更新完成':
-                guild = mes_temp[0].guild
-                await mes_temp[0].author.add_roles(guild.get_role(934286697942908968))
-                await mes_temp[0].author.remove_roles(guild.get_role(1193187250553503866))
-
-#验证函数
+# 验证函数
 def verify(ctx, wikidot_id: str):
     discord_id = str(ctx.author.id)
-    now=time.time()
-    flag2=0
+    now = time.time()
+    flag2 = 0
     try:
-        if now-code_dic[discord_id][2]<60:
+        if now - code_dic[discord_id][2] < 60:
             messages.append([ctx, discord_id, '已申请验证，请在1分钟后重试'])
     except KeyError:
         try:
             messages.append([ctx, discord_id, f'此账户已绑定*{users_dic[discord_id]}*。'])
-            wikidot_id=users_dic[discord_id]
-            flag2=1
+            wikidot_id = users_dic[discord_id]
+            flag2 = 1
         except KeyError:
             for i in users_dic:
-                if i[0]==wikidot_id:
+                if i[0] == wikidot_id:
                     messages.append([ctx, discord_id, f'wikidot账号*{wikidot_id}*已被绑定。'])
                     return None
-        code_dic[discord_id]=[wikidot_id,'',now,0]
+        code_dic[discord_id] = [wikidot_id, '', now, 0]
         print(time.time())
         driver = webdriver.Chrome(options=chrome_options)
         print(time.time())
@@ -98,7 +104,7 @@ def verify(ctx, wikidot_id: str):
         if flag2:
             del code_dic[discord_id]
             return None
-        if wikidot_id=='':
+        if wikidot_id == '':
             del code_dic[discord_id]
             messages.append([ctx, discord_id, '缺少wikidot用户名'])
             return None
@@ -115,13 +121,13 @@ def verify(ctx, wikidot_id: str):
         driver.close()
         messages.append([ctx, discord_id, '验证码已发送，请在五分钟内输入验证码以完成验证。'])
 
-#清理过期验证码
+# 清理过期验证码
 def dic_clear():
     while True:
         with open("users_dic.pkl", "wb") as file:
             pickle.dump(users_dic, file)
         now = time.time()
-        del_list=[]
+        del_list = []
         for i in code_dic:
             if now - code_dic[i][2] >= 300:
                 del_list.append(i)
@@ -129,13 +135,13 @@ def dic_clear():
             del code_dic[i]
         time.sleep(60)
 
-#命令处理
+# 命令处理
 @bot.command(name='verify')
 async def verify_command(ctx, wikidot_id=''):
-    wikidot_id=ctx.message.content[8:].strip('[]').replace(' ','-')
+    wikidot_id = ctx.message.content[8:].strip('[]').replace(' ', '-')
     print(wikidot_id)
     await ctx.reply("正在验证您的Wikidot账户，该操作完成的时间可能较长，请耐心等候...")
-    t1=threading.Thread(target=verify,args=(ctx,wikidot_id))
+    t1 = threading.Thread(target=verify, args=(ctx, wikidot_id))
     t1.start()
 
 @bot.command(name='code')
@@ -152,11 +158,11 @@ async def code_command(ctx, code: str):
                 await ctx.reply('验证成功，身份组分配完成')
             else:
                 await ctx.reply('验证成功')
-            discord_name=ctx.author.nick
+            discord_name = ctx.author.nick
             print(discord_name)
             users_dic[discord_id] = code_dic[discord_id][0]
-            #if users_dic[discord_id] not in discord_name:
-                #await ctx.author.edit(nick=f'{discord_name}/{code_dic[discord_id][0]}')
+            # if users_dic[discord_id] not in discord_name:
+            # await ctx.author.edit(nick=f'{discord_name}/{code_dic[discord_id][0]}')
             del code_dic[discord_id]
         else:
             await ctx.reply('验证码错误')
@@ -165,10 +171,10 @@ async def code_command(ctx, code: str):
 
 @bot.command(name='check')
 async def check_command(ctx, discord_id=''):
-    if discord_id=='':
-        discord_id=str(ctx.author.id)
+    if discord_id == '':
+        discord_id = str(ctx.author.id)
     else:
-        discord_id=discord_id.strip('[]<>@')
+        discord_id = discord_id.strip('[]<>@')
     try:
         await ctx.reply(f'该账号已绑定wikidot账号*{users_dic[discord_id]}*。')
     except KeyError:
@@ -178,10 +184,6 @@ async def check_command(ctx, discord_id=''):
 async def role_edit(ctx, action, user_id, role_id):
     if ctx.message.author.id not in allowed_user_ids:
         await ctx.send("在权限检查时出现错误：权限不足")
-        return
-
-    if action not in ['add', 'del']:
-        await ctx.send("在使用命令时出现错误：无效的参数")
         return
 
     user = bot.get_user(int(user_id))
@@ -205,6 +207,8 @@ async def role_edit(ctx, action, user_id, role_id):
         else:
             await ctx.send(f"错误：*{user.name}*不在*{role.name}*身份组中")
 
+# 启动清理线程
+threading.Thread(target=dic_clear, args=()).start()
 
-threading.Thread(target=dic_clear,args=()).start()
-bot.run('')
+# 运行bot
+bot.run(discord_token)
