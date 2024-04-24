@@ -115,7 +115,7 @@ async def verify_command(ctx, wikidot_id=''):
         for roleid in discord_roles.values():
             if (role:=guild.get_role(roleid)) in author.roles:
                 await author.remove_roles(role)
-        author.add_roles(discord_roles['Member' if isMember else 'notMember'])
+        await author.add_roles(guild.get_role(discord_roles['Member' if isMember else 'notMember']))
         await ctx.send('身份组更新完成')
         return
     code = "".join(random.sample(string.digits, 6))

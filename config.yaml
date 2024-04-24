@@ -18,5 +18,5 @@ wikidot:
   password: ""
   # 目标站点id
   siteId: ""
-  #Wikidot验证码私信标题
+  # Wikidot验证码私信标题
   title: ""
