@@ -26,7 +26,6 @@ except:
 code_dic = {}  # 字典，{discord_id : [wikidot_id,code,time]}
 allowed_user_ids = config['discord']['allowed_user_ids']  # 允许执行命令的用户列表
 roles_dict = {}
-website=config['wikidot']['website']
 discord_roles = config['discord']['roles']
 
 #Request初始化
@@ -34,24 +33,12 @@ s = requests.Session()
 retries = Retry(total=10, backoff_factor=0.4, status_forcelist=[429, 500, 502, 503, 504])
 s.mount("http://", HTTPAdapter(max_retries=retries))
 s.mount("https://", HTTPAdapter(max_retries=retries))
-headers = {
-    "Host": website,
-    "Origin": f"https://{website}",
-    "Pragma": "no-cache",
-    "Referer": f"https://{website}",
-    "Sec-Fetch-Dest": "empty",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Site": "same-origin",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0",
-    "X-Requested-With": "XMLHttpRequest",
-        }
 
 #Discord初始化
 intents = discord.Intents.all()
 intents.message_content = True
 intents.reactions = True
 bot = commands.Bot(command_prefix='!', intents=intents)
-
 
 # 登录
 s.post(
@@ -63,6 +50,7 @@ s.post(
         event="login",
     ),
 )
+
 
 # 清理过期验证码
 def dic_clear():
@@ -107,9 +95,14 @@ async def verify_command(ctx, wikidot_id=''):
         f"&q={wikidot_id}"
         f"&s={config['wikidot']['siteId']}"
     ).json()
-    if userlookup["users"]!=False and wikidot_id in [user['name'] for user in userlookup["users"]]:
-        await ctx.send([ctx, discord_id, '未找到对应Wikidot账号，请重新输入。'])
+    if userlookup["users"]!=False and wikidot_id not in [user['name'] for user in userlookup["users"]]:
+        await ctx.send('未找到对应Wikidot账号，请重新输入。')
         return
+    to_wikidot=None
+    for user in userlookup['users']:
+        if user['name']==wikidot_id:
+            to_wikidot=user['user_id']
+            break
     memberlookup = s.get(
         "https://www.wikidot.com/quickmodule.php?module=MemberLookupQModule"
         f"&q={wikidot_id}"
@@ -127,21 +120,21 @@ async def verify_command(ctx, wikidot_id=''):
         return
     code = "".join(random.sample(string.digits, 6))
     response = s.post(
-            f"https://{website}/ajax-module-connector.php",
-            headers=headers,
+            "https://www.wikidot.com/ajax-module-connector.php",
             data={
                 "source":f'你的验证码是{code}，五分钟之内有效。',
-                "subject":'The Backrooms Wikidot中文官方Discord服务器验证码',
-                "to_user_id":wikidot_id,
+                "subject":config['wikidot']['title'],
+                "to_user_id":to_wikidot,
                 "action":"DashboardMessageAction",
                 "event":"send",
                 "moduleName":"Empty",
                 "callbackIndex":0,
                 "wikidot_token7": s.cookies.get(
-                    "wikidot_token7", domain=website
+                    "wikidot_token7", domain='www.wikidot.com'
                 ),
             },
         )
+    print(response.text)
     code_dic[discord_id] = [wikidot_id, code, time.time(), isMember]
     await ctx.send('验证码已发送，请在五分钟内输入验证码以完成验证。')
 
