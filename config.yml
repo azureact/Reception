@@ -1,3 +1,22 @@
-DiscordToken: ''
-WikidotAccount: ''
-WikidotPassword: ''
+discord:
+  # Discord机器人token
+  token: ""
+  # 未入站身份组id
+  roles:
+    notMember: 
+    # 入站身份组id
+    Member: 
+    # 游客身份组id
+    Guest: 
+  #允许使用role_edit的用户列表
+  allowed_user_ids: []
+
+wikidot:
+  # Wikidot机器人用户名
+  username: ""
+  # Wikidot机器人密码
+  password: ""
+  # 目标站点id
+  siteId: ""
+  # 目标站点链接
+  website: ""
