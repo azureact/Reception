@@ -33,7 +33,7 @@ intents.reactions = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 # 登录
-wd=wikidot.Client(config["wikidot"]["username"], config["wikidot"]["password"])
+wd=wikidot.Client(username=config["wikidot"]["username"], password=config["wikidot"]["password"])
 
 # 清理过期验证码
 def dic_clear():

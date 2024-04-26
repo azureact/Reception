@@ -1,0 +1,3 @@
+Pyyaml
+discord.py
+wikidot
