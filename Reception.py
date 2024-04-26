@@ -6,6 +6,7 @@ import discord
 import pickle
 import yaml
 from discord.ext import commands
+from discord.ext.commands import Context
 import wikidot
 from wikidot.util.quick_module import QuickModule
 
@@ -55,7 +56,7 @@ async def on_ready():
 
 # 命令处理
 @bot.command(name='verify')
-async def verify_command(ctx, wikidot_name=''):
+async def verify_command(ctx:Context, wikidot_name=''):
     wikidot_name = ctx.message.content[8:].strip('[]')
     print(wikidot_name)
     await ctx.reply("正在验证您的Wikidot账户，该操作完成的时间可能较长，请耐心等候...")
@@ -102,7 +103,7 @@ async def verify_command(ctx, wikidot_name=''):
     await ctx.send('验证码已发送，请在五分钟内输入验证码以完成验证。')
 
 @bot.command(name='code')
-async def code_command(ctx, code: str):
+async def code_command(ctx:Context, code: str):
     discord_id = str(ctx.author.id)
     try:
         if code_dic[discord_id][1] == code:
@@ -128,7 +129,7 @@ async def code_command(ctx, code: str):
         await ctx.reply('没有申请验证码或验证码已过期')
 
 @bot.command(name='check')
-async def check_command(ctx, discord_id=''):
+async def check_command(ctx:Context, discord_id=''):
     if discord_id == '':
         discord_id = str(ctx.author.id)
     else:
@@ -139,7 +140,7 @@ async def check_command(ctx, discord_id=''):
         await ctx.reply('该账户未绑定，请稍后再试')
 
 @bot.command(name='roleedit')
-async def role_edit(ctx, action, user_id, role_id):
+async def role_edit(ctx:Context, action, user_id, role_id):
     if ctx.message.author.id not in allowed_user_ids:
         await ctx.send("在权限检查时出现错误：权限不足")
         return
