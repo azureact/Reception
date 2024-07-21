@@ -6,10 +6,9 @@ import discord
 import pickle
 import yaml
 from discord.ext import commands
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-
+from discord.ext.commands import Context
+import wikidot
+from wikidot.util.quick_module import QuickModule
 
 # 读取配置文件
 with open("config.yaml", "r", encoding="utf-8") as file:
@@ -23,16 +22,10 @@ except:
     users_dic = {}
 
 #配置文件初始化
-code_dic = {}  # 字典，{discord_id : [wikidot_id,code,time]}
+code_dic = {}  # 字典，{discord_id : [wikidot_name,code,time]}
 allowed_user_ids = config['discord']['allowed_user_ids']  # 允许执行命令的用户列表
 roles_dict = {}
 discord_roles = config['discord']['roles']
-
-#Request初始化
-s = requests.Session()
-retries = Retry(total=10, backoff_factor=0.4, status_forcelist=[429, 500, 502, 503, 504])
-s.mount("http://", HTTPAdapter(max_retries=retries))
-s.mount("https://", HTTPAdapter(max_retries=retries))
 
 #Discord初始化
 intents = discord.Intents.all()
@@ -41,16 +34,7 @@ intents.reactions = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 # 登录
-s.post(
-    "https://www.wikidot.com/default--flow/login__LoginPopupScreen",
-    data=dict(
-        login=config["wikidot"]["username"],
-        password=config["wikidot"]["password"],
-        action="Login2Action",
-        event="login",
-    ),
-)
-
+wd=wikidot.Client(username=config["wikidot"]["username"], password=config["wikidot"]["password"])
 
 # 清理过期验证码
 def dic_clear():
@@ -72,44 +56,39 @@ async def on_ready():
 
 # 命令处理
 @bot.command(name='verify')
-async def verify_command(ctx, wikidot_id=''):
-    wikidot_id = ctx.message.content[8:].strip('[]').replace(' ', '-')
-    print(wikidot_id)
+async def verify_command(ctx:Context, wikidot_name=''):
+    wikidot_name = ctx.message.content[8:].strip('[]')
+    print(wikidot_name)
     await ctx.reply("正在验证您的Wikidot账户，该操作完成的时间可能较长，请耐心等候...")
     discord_id = str(ctx.author.id)
     now = time.time()
     if code_dic.get(discord_id) is not None and now - code_dic[discord_id][2] < 60:
         await ctx.send('已申请验证，请在1分钟后重试')
         return
-    if (intend_wikidot_id:=users_dic.get(discord_id)) is not None:
-        wikidot_id = intend_wikidot_id
-        await ctx.send(f'此Discord账户已绑定*{wikidot_id}*。')
-    elif wikidot_id == '':
+    if users_dic.get(discord_id) is not None:
+        wikidot_name = users_dic[discord_id]
+        await ctx.send(f'此Discord账户已绑定*{wikidot_name}*。')
+    elif wikidot_name == '':
         await ctx.send('缺少wikidot用户名')
         return
-    elif wikidot_id in users_dic.values():
-        await ctx.send(f'wikidot账号*{wikidot_id}*已被绑定。')
+    elif wikidot_name in users_dic.values():
+        await ctx.send(f'wikidot账号*{wikidot_name}*已被绑定。')
         return
-    userlookup = s.get(
-        "https://www.wikidot.com/quickmodule.php?module=UserLookupQModule"
-        f"&q={wikidot_id}"
-        f"&s={config['wikidot']['siteId']}"
-    ).json()
-    if userlookup["users"]!=False and wikidot_id not in [user['name'] for user in userlookup["users"]]:
+    try:
+        userlookup = QuickModule.user_lookup(config['wikidot']['siteId'],wikidot_name)
+        if wikidot_name not in [user.name for user in userlookup]:
+            raise TypeError('User not found.')
+    except TypeError:
         await ctx.send('未找到对应Wikidot账号，请重新输入。')
         return
-    to_wikidot=None
-    for user in userlookup['users']:
-        if user['name']==wikidot_id:
-            to_wikidot=user['user_id']
-            break
-    memberlookup = s.get(
-        "https://www.wikidot.com/quickmodule.php?module=MemberLookupQModule"
-        f"&q={wikidot_id}"
-        f"&s={config['wikidot']['siteId']}"
-    ).json()
-    isMember= memberlookup["users"]!=False and wikidot_id in [user['name'] for user in memberlookup["users"]]
-    if intend_wikidot_id is not None:
+    try:
+        memberlookup = QuickModule.member_lookup(config['wikidot']['siteId'],wikidot_name)
+        if wikidot_name not in [user.name for user in memberlookup]:
+            raise TypeError('User not found.')
+        isMember = True
+    except TypeError :
+        isMember = False
+    if users_dic.get(discord_id) is not None:
         guild=ctx.guild
         author=ctx.author
         for roleid in discord_roles.values():
@@ -119,27 +98,12 @@ async def verify_command(ctx, wikidot_id=''):
         await ctx.send('身份组更新完成')
         return
     code = "".join(random.sample(string.digits, 6))
-    response = s.post(
-            "https://www.wikidot.com/ajax-module-connector.php",
-            data={
-                "source":f'你的验证码是{code}，五分钟之内有效。',
-                "subject":config['wikidot']['title'],
-                "to_user_id":to_wikidot,
-                "action":"DashboardMessageAction",
-                "event":"send",
-                "moduleName":"Empty",
-                "callbackIndex":0,
-                "wikidot_token7": s.cookies.get(
-                    "wikidot_token7", domain='www.wikidot.com'
-                ),
-            },
-        )
-    print(response.text)
-    code_dic[discord_id] = [wikidot_id, code, time.time(), isMember]
+    wd.private_message.send(wd.user.get(wikidot_name) , config['wikidot']['title'], f'你的验证码是{code}，五分钟之内有效。')
+    code_dic[discord_id] = [wikidot_name, code, time.time(), isMember]
     await ctx.send('验证码已发送，请在五分钟内输入验证码以完成验证。')
 
 @bot.command(name='code')
-async def code_command(ctx, code: str):
+async def code_command(ctx:Context, code: str):
     discord_id = str(ctx.author.id)
     try:
         if code_dic[discord_id][1] == code:
@@ -157,7 +121,7 @@ async def code_command(ctx, code: str):
             print(discord_name)
             users_dic[discord_id] = code_dic[discord_id][0]
             # if users_dic[discord_id] not in discord_name:
-            # await ctx.author.edit(nick=f'{discord_name}/{code_dic[discord_id][0]}')
+                # await ctx.author.edit(nick=f'{discord_name}/{code_dic[discord_id][0]}')
             del code_dic[discord_id]
         else:
             await ctx.reply('验证码错误')
@@ -165,7 +129,7 @@ async def code_command(ctx, code: str):
         await ctx.reply('没有申请验证码或验证码已过期')
 
 @bot.command(name='check')
-async def check_command(ctx, discord_id=''):
+async def check_command(ctx:Context, discord_id=''):
     if discord_id == '':
         discord_id = str(ctx.author.id)
     else:
@@ -176,7 +140,7 @@ async def check_command(ctx, discord_id=''):
         await ctx.reply('该账户未绑定，请稍后再试')
 
 @bot.command(name='roleedit')
-async def role_edit(ctx, action, user_id, role_id):
+async def role_edit(ctx:Context, action, user_id, role_id):
     if ctx.message.author.id not in allowed_user_ids:
         await ctx.send("在权限检查时出现错误：权限不足")
         return
@@ -202,9 +166,8 @@ async def role_edit(ctx, action, user_id, role_id):
         else:
             await ctx.send(f"错误：*{user.name}*不在*{role.name}*身份组中")
 
-# 启动清理线程
-threading.Thread(target=dic_clear, args=()).start()
-
 # 运行bot
 if __name__ == '__main__':
+    # 启动清理线程
+    threading.Thread(target=dic_clear, args=()).start()
     bot.run(config['discord']['token'])
