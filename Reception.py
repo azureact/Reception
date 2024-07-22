@@ -76,7 +76,11 @@ async def verify_command(ctx:Context, wikidot_name=''):
         return
     try:
         userlookup = QuickModule.user_lookup(config['wikidot']['siteId'],wikidot_name)
-        if wikidot_name not in [user.name for user in userlookup]:
+        for user in userlookup:
+            if wikidot_name == user.name:
+                wikidot_user = user
+                break
+        else:
             raise TypeError('User not found.')
     except TypeError:
         await ctx.send('未找到对应Wikidot账号，请重新输入。')
@@ -86,7 +90,7 @@ async def verify_command(ctx:Context, wikidot_name=''):
         if wikidot_name not in [user.name for user in memberlookup]:
             raise TypeError('User not found.')
         isMember = True
-    except TypeError :
+    except TypeError:
         isMember = False
     if users_dic.get(discord_id) is not None:
         guild=ctx.guild
@@ -98,7 +102,7 @@ async def verify_command(ctx:Context, wikidot_name=''):
         await ctx.send('身份组更新完成')
         return
     code = "".join(random.sample(string.digits, 6))
-    wd.private_message.send(wd.user.get(wikidot_name) , config['wikidot']['title'], f'你的验证码是{code}，五分钟之内有效。')
+    wd.private_message.send(wikidot_user , config['wikidot']['title'], f'你的验证码是{code}，五分钟之内有效。')
     code_dic[discord_id] = [wikidot_name, code, time.time(), isMember]
     await ctx.send('验证码已发送，请在五分钟内输入验证码以完成验证。')
 
