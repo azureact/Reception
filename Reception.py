@@ -50,6 +50,9 @@ def dic_clear():
             del code_dic[i]
         time.sleep(60)
 
+def send(user, code):
+    wd.private_message.send(user , config['wikidot']['title'], f'你的验证码是{code}，五分钟之内有效。')
+
 @bot.event
 async def on_ready():
     print(f'We have logged in as {bot.user}')
@@ -102,7 +105,7 @@ async def verify_command(ctx:Context, wikidot_name=''):
         await ctx.send('身份组更新完成')
         return
     code = "".join(random.sample(string.digits, 6))
-    wd.private_message.send(wikidot_user , config['wikidot']['title'], f'你的验证码是{code}，五分钟之内有效。')
+    threading.Thread(target=send, args=(wikidot_user, code)).start()
     code_dic[discord_id] = [wikidot_name, code, time.time(), isMember]
     await ctx.send('验证码已发送，请在五分钟内输入验证码以完成验证。')
 
