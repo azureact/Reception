@@ -2,6 +2,7 @@ import string
 import random
 import time
 import threading
+import asyncio
 import discord
 import pickle
 import yaml
@@ -9,6 +10,7 @@ from discord.ext import commands
 from discord.ext.commands import Context
 import wikidot
 from wikidot.util.quick_module import QuickModule
+from wikidot.common.exceptions import ForbiddenException
 
 # 读取配置文件
 with open("config.yaml", "r", encoding="utf-8") as file:
@@ -105,7 +107,11 @@ async def verify_command(ctx:Context, wikidot_name=''):
         await ctx.send('身份组更新完成')
         return
     code = "".join(random.sample(string.digits, 6))
-    threading.Thread(target=send, args=(wikidot_user, code)).start()
+    try:
+        await asyncio.to_thread(send, wikidot_user, code)
+    except ForbiddenException:
+        await ctx.send('发送验证码失败，请检查私信权限设置。')
+        return
     code_dic[discord_id] = [wikidot_name, code, time.time(), isMember]
     await ctx.send('验证码已发送，请在五分钟内输入验证码以完成验证。')
 
